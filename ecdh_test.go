@@ -2,7 +2,6 @@ package ecdh
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/elliptic"
 	"crypto/rand"
 	"testing"
@@ -29,10 +28,6 @@ func TestNIST521(t *testing.T) {
 	testEllipticECDH(NewEllipticECDH(elliptic.P521()), t)
 }
 
-func TestCurve25519(t *testing.T) {
-	testECDH(NewCurve25519ECDH(), t)
-}
-
 func BenchmarkNIST224(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		testECDH(NewEllipticECDH(elliptic.P224()), b)
@@ -57,15 +52,9 @@ func BenchmarkNIST521(b *testing.B) {
 	}
 }
 
-func BenchmarkCurve25519(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		testECDH(NewCurve25519ECDH(), b)
-	}
-}
-
 func testECDH(e ECDH, t testing.TB) {
-	var privKey1, privKey2 crypto.PrivateKey
-	var pubKey1, pubKey2 crypto.PublicKey
+	var privKey1, privKey2 *EllipticPrivateKey
+	var pubKey1, pubKey2 *EllipticPublicKey
 	var pubKey1Buf, pubKey2Buf []byte
 	var err error
 	var secret1, secret2 []byte
@@ -113,8 +102,8 @@ func testEllipticECDH(e ECDH, t testing.TB) {
 	ec, ok := e.(*EllipticECDH)
 	r.Equal(true, ok)
 
-	var privKey1, privKey2 crypto.PrivateKey
-	var pubKey1, pubKey2 crypto.PublicKey
+	var privKey1, privKey2 *EllipticPrivateKey
+	var pubKey1, pubKey2 *EllipticPublicKey
 	var pubKey1Buf, pubKey2Buf []byte
 	var err error
 	var secret1, secret2 []byte
@@ -125,15 +114,15 @@ func testEllipticECDH(e ECDH, t testing.TB) {
 	r.NoError(err)
 
 	// test marshal & unmarshal
-	pubKey1Buf, err = ec.X509Marshal(pubKey1)
+	pubKey1Buf, err = ec.X509MarshalPublicKey(pubKey1)
 	r.NoError(err)
-	pubKey2Buf, err = ec.X509Marshal(pubKey2)
-	r.NoError(err)
-
-	pubKey1, err = ec.X509Unmarshal(pubKey1Buf)
+	pubKey2Buf, err = ec.X509MarshalPublicKey(pubKey2)
 	r.NoError(err)
 
-	pubKey2, err = ec.X509Unmarshal(pubKey2Buf)
+	pubKey1, err = ec.X509UnmarshalPublicKey(pubKey1Buf)
+	r.NoError(err)
+
+	pubKey2, err = ec.X509UnmarshalPublicKey(pubKey2Buf)
 	r.NoError(err)
 
 	// test generate share secret
@@ -157,12 +146,11 @@ RdiYwpZP40Li/hp/m47n60p8D54WK84zV2sxXs7LtkBoN79R9QIhAP////8AAAAA
 D9eDkTAErOu2HYrdkjYCh4MGeaYRzBe7jsY3TObLznqsG7js2/isyXdsloA2S/A=
 -----END PUBLIC KEY-----`)
 	ec := NewEllipticECDH(elliptic.P256())
-	tmpPub, err := ec.X509Unmarshal(clientPub)
+	pub, err := ec.X509UnmarshalPublicKey(clientPub)
 	r.NoError(err)
-	pub := tmpPub.(*EllipticPublicKey)
 	r.NotEqual(nil, pub.X)
 
-	pem, err := ec.X509Marshal(pub)
+	pem, err := ec.X509MarshalPublicKey(pub)
 	r.NoError(err)
 	r.True(len(pem) > 0)
 	// fmt.Println(string(pem))

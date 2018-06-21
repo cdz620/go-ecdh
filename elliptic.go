@@ -1,7 +1,6 @@
 package ecdh
 
 import (
-	"crypto"
 	"crypto/elliptic"
 	"io"
 	"math/big"
@@ -14,7 +13,6 @@ import (
 	"crypto/ecdsa"
 )
 
-
 type EllipticECDH struct {
 	ECDH
 	curve elliptic.Curve
@@ -26,7 +24,7 @@ type EllipticPublicKey struct {
 }
 
 type EllipticPrivateKey struct {
-	D []byte
+	D *big.Int
 }
 
 type publicKeyInfo struct {
@@ -43,7 +41,7 @@ func NewEllipticECDH(curve elliptic.Curve) *EllipticECDH {
 	}
 }
 
-func (e *EllipticECDH) GenerateKey(rand io.Reader) (crypto.PrivateKey, crypto.PublicKey, error) {
+func (e *EllipticECDH) GenerateKey(rand io.Reader) (*EllipticPrivateKey, *EllipticPublicKey, error) {
 	var d []byte
 	var x, y *big.Int
 	var priv *EllipticPrivateKey
@@ -56,7 +54,7 @@ func (e *EllipticECDH) GenerateKey(rand io.Reader) (crypto.PrivateKey, crypto.Pu
 	}
 
 	priv = &EllipticPrivateKey{
-		D: d,
+		D: new(big.Int).SetBytes(d),
 	}
 	pub = &EllipticPublicKey{
 		Curve: e.curve,
@@ -67,12 +65,11 @@ func (e *EllipticECDH) GenerateKey(rand io.Reader) (crypto.PrivateKey, crypto.Pu
 	return priv, pub, nil
 }
 
-func (e *EllipticECDH) Marshal(p crypto.PublicKey) ([]byte, error) {
-	pub := p.(*EllipticPublicKey)
+func (e *EllipticECDH) Marshal(pub *EllipticPublicKey) ([]byte, error) {
 	return elliptic.Marshal(e.curve, pub.X, pub.Y), nil
 }
 
-func (e *EllipticECDH) Unmarshal(data []byte) (crypto.PublicKey, error) {
+func (e *EllipticECDH) Unmarshal(data []byte) (*EllipticPublicKey, error) {
 	var key *EllipticPublicKey
 	var x, y *big.Int
 
@@ -88,8 +85,7 @@ func (e *EllipticECDH) Unmarshal(data []byte) (crypto.PublicKey, error) {
 	return key, nil
 }
 
-func (e *EllipticECDH) X509Marshal(p crypto.PublicKey) ([]byte, error) {
-	pub := p.(*EllipticPublicKey)
+func (e *EllipticECDH) X509MarshalPublicKey(pub *EllipticPublicKey) ([]byte, error) {
 	ecdsaPubKey := &ecdsa.PublicKey{}
 	ecdsaPubKey.Curve = pub.Curve
 	ecdsaPubKey.X = pub.X
@@ -109,7 +105,7 @@ func (e *EllipticECDH) X509Marshal(p crypto.PublicKey) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (e *EllipticECDH) X509Unmarshal(data []byte) (crypto.PublicKey, error) {
+func (e *EllipticECDH) X509UnmarshalPublicKey(data []byte) (*EllipticPublicKey, error) {
 	// pem decode public key to der-format
 	block, _ := pem.Decode(data)
 	if block == nil {
@@ -136,15 +132,37 @@ func (e *EllipticECDH) X509Unmarshal(data []byte) (crypto.PublicKey, error) {
 	return pubKey, nil
 }
 
+func (e *EllipticECDH) X509UnmarshalPrivateKey(pemBytes []byte) (*EllipticPrivateKey, error) {
+	// pem decode public key to der-format
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		// return nil, errors.New("invalid pem format")
+	}
+
+	// parse der
+	tp, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return &EllipticPrivateKey{D: tp.D}, nil
+}
+
+func (e *EllipticECDH) X509MarshalPrivateKey(priKey *EllipticPrivateKey) ([]byte, error) {
+	ecdsaPriKey := &ecdsa.PrivateKey{
+		D: priKey.D,
+	}
+	data, err := x509.MarshalECPrivateKey(ecdsaPriKey)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
 
 // GenerateSharedSecret takes in a public key and a private key
 // and generates a shared secret.
 //
 // RFC5903 Section 9 states we should only return x.
-func (e *EllipticECDH) GenerateSharedSecret(privKey crypto.PrivateKey, pubKey crypto.PublicKey) ([]byte, error) {
-	priv := privKey.(*EllipticPrivateKey)
-	pub := pubKey.(*EllipticPublicKey)
-
-	x, _ := e.curve.ScalarMult(pub.X, pub.Y, priv.D)
+func (e *EllipticECDH) GenerateSharedSecret(priv *EllipticPrivateKey, pub *EllipticPublicKey) ([]byte, error) {
+	x, _ := e.curve.ScalarMult(pub.X, pub.Y, priv.D.Bytes())
 	return x.Bytes(), nil
 }
