@@ -17,3 +17,11 @@ Works with go 1.2 onwards.
 
 ## TODO
  * Improve documentation
+ 
+ 
+## change log
+
+### 2018-06-21
+
+- add x509 marshal and unmarshal
+- support `-param_enc explicit`

@@ -5,15 +5,15 @@ import (
 	"io"
 
 	"golang.org/x/crypto/curve25519"
+	"errors"
 )
 
 type curve25519ECDH struct {
-	ECDH
 }
 
 // NewCurve25519ECDH creates a new ECDH instance that uses djb's curve25519
 // elliptical curve.
-func NewCurve25519ECDH() ECDH {
+func NewCurve25519ECDH() *curve25519ECDH {
 	return &curve25519ECDH{}
 }
 
@@ -35,20 +35,21 @@ func (e *curve25519ECDH) GenerateKey(rand io.Reader) (crypto.PrivateKey, crypto.
 	return &priv, &pub, nil
 }
 
-func (e *curve25519ECDH) Marshal(p crypto.PublicKey) []byte {
+func (e *curve25519ECDH) Marshal(p crypto.PublicKey) ([]byte, error) {
 	pub := p.(*[32]byte)
-	return pub[:]
+	return pub[:], nil
 }
 
-func (e *curve25519ECDH) Unmarshal(data []byte) (crypto.PublicKey, bool) {
+func (e *curve25519ECDH) Unmarshal(data []byte) (crypto.PublicKey, error) {
 	var pub [32]byte
 	if len(data) != 32 {
-		return nil, false
+		return nil, errors.New("invalid  curve25519 data")
 	}
 
 	copy(pub[:], data)
-	return &pub, true
+	return &pub, nil
 }
+
 
 func (e *curve25519ECDH) GenerateSharedSecret(privKey crypto.PrivateKey, pubKey crypto.PublicKey) ([]byte, error) {
 	var priv, pub, secret *[32]byte
