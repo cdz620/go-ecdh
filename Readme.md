@@ -25,3 +25,4 @@ Works with go 1.2 onwards.
 
 - add x509 marshal and unmarshal
 - support `-param_enc explicit`
+- fixed `crypto/elliptic: unexpected P256.ScalarMult result`, issue: https://github.com/golang/go/issues/26020

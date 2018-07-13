@@ -24,6 +24,7 @@ type EllipticPublicKey struct {
 }
 
 type EllipticPrivateKey struct {
+	EllipticPublicKey
 	D *big.Int
 }
 
@@ -144,7 +145,13 @@ func (e *EllipticECDH) X509UnmarshalPrivateKey(pemBytes []byte) (*EllipticPrivat
 	if err != nil {
 		return nil, err
 	}
-	return &EllipticPrivateKey{D: tp.D}, nil
+
+	ecPriKey := &EllipticPrivateKey{D: tp.D}
+	ecPriKey.Curve = tp.Curve
+	ecPriKey.X = tp.X
+	ecPriKey.Y = tp.Y
+
+	return ecPriKey, nil
 }
 
 func (e *EllipticECDH) X509MarshalPrivateKey(priKey *EllipticPrivateKey) ([]byte, error) {
@@ -164,5 +171,9 @@ func (e *EllipticECDH) X509MarshalPrivateKey(priKey *EllipticPrivateKey) ([]byte
 // RFC5903 Section 9 states we should only return x.
 func (e *EllipticECDH) GenerateSharedSecret(priv *EllipticPrivateKey, pub *EllipticPublicKey) ([]byte, error) {
 	x, _ := e.curve.ScalarMult(pub.X, pub.Y, priv.D.Bytes())
+	xBytes := x.Bytes()
+	for len(xBytes) < len(e.curve.Params().N.Bytes()) {
+		xBytes = append([]byte{0}, xBytes...)
+	}
 	return x.Bytes(), nil
 }
