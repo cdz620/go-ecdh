@@ -237,3 +237,38 @@ func TestEncodeDecode(t *testing.T) {
 		fmt.Println("Public keys do not match.")
 	}
 }
+
+// https://github.com/golang/go/issues/26020
+func TestUnexpectedScalarMultResult(t *testing.T) {
+	// assert
+	r := require.New(t)
+	expectedSharedKey := "ACjIKHvl1FAT1zAEQ882cmRQjT75GoLk6MpGHsiDqno="
+
+	var cliPubBytes = []byte(`-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJr/X/vpUoAlJ5RBMW9m4bI13RkXI
+Jx5CUsYPk+JC1EANHkeH5lpEeY1uxIJ8WEDyfgy6YVfPJri93X9KEQixng==
+-----END PUBLIC KEY-----`)
+
+
+	var serPriBytes = []byte(`-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEII7BB2KdPVOppd5X8O2tB6MSNoSk25PX2fvSOmHkP2fUoAoGCCqGSM49
+AwEHoUQDQgAEdDndAOfQ8aYEK7JECZ0+a0J9aWHjS9FyV+i68qE4zCOdGWN6Q7td
+zjPkK5LvNusUCFbv6nLKlk1j8t2Hrc+3lw==
+-----END EC PRIVATE KEY-----`)
+
+
+	ec := NewEllipticECDH(elliptic.P256())
+	cliPubKey, err := ec.X509UnmarshalPublicKey(cliPubBytes)
+	r.NoError(err)
+
+	serPriKey, err := ec.X509UnmarshalPrivateKey(serPriBytes)
+	r.NoError(err)
+
+	keyBytes, err := ec.GenerateSharedSecret(serPriKey, cliPubKey)
+	r.NoError(err)
+
+	sharedKey := base64.StdEncoding.EncodeToString(keyBytes)
+
+	r.Equal(expectedSharedKey, sharedKey)
+
+}

@@ -172,8 +172,13 @@ func (e *EllipticECDH) X509MarshalPrivateKey(priKey *EllipticPrivateKey) ([]byte
 func (e *EllipticECDH) GenerateSharedSecret(priv *EllipticPrivateKey, pub *EllipticPublicKey) ([]byte, error) {
 	x, _ := e.curve.ScalarMult(pub.X, pub.Y, priv.D.Bytes())
 	xBytes := x.Bytes()
-	for len(xBytes) < len(e.curve.Params().N.Bytes()) {
-		xBytes = append([]byte{0}, xBytes...)
+	xByteSize := len(xBytes)
+	// https://github.com/golang/go/issues/26020#issuecomment-404696978
+	size := len(e.curve.Params().N.Bytes())
+	if xByteSize < size {
+		newXBytes := make([]byte, size)
+		copy(newXBytes[size - xByteSize:], xBytes)
+		xBytes = newXBytes
 	}
-	return x.Bytes(), nil
+	return xBytes, nil
 }
